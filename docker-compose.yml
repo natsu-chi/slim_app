@@ -1,0 +1,47 @@
+version: "3.8"
+
+services:
+  # PHP 的容器配置，將會由 ./docker/php/Dockerfile 來進行打包生成
+  # port 則是容器與機器端口的映射，可以自行調整
+  # volumes 用於掛載本機與容器之間的文件，因為容器一旦關閉，所產生的文件就會被 Reset，所以掛載我們的專案才可以持續使用
+  # depends_on 是表示容器之間的依賴關係，可以用來決定啟動順序。原本容器間都是隔離不相通的，為了讓他們可以互相溝通所以使用
+  # image 是已經被打包好發布在 Docker Hub 的鏡像
+  # restart 可以設定容器掛了是否要不要重啟
+  # environment 是基本的配置，像是Mysql的部分直接配置好User、DB，不用手動慢慢建立
+  # command 是開啟容器後，可以自動讓他下指令，我這邊的指令是用於把我的DB schema自動導入
+  php:
+    container_name: slim_php
+    build:
+      context: ./docker/php
+    ports:
+      - '9000:9000'
+    volumes:
+      - .:/var/www/slim_app
+    depends_on:
+      - mysql
+  nginx:
+    container_name: slim_nginx
+    image: nginx:stable-alpine
+    ports:
+      - '8080:80'
+    volumes:
+      - .:/var/www/slim_app
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - php
+    # AS YOU NEED
+  mysql:
+    container_name: slim_mysql
+    image: mariadb:10.4
+    restart: always
+    environment:
+      - MYSQL_DATABASE=slim_app
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_USER=root
+      - MYSQL_PASSWORD=root
+    command: --init-file /data/application/init.sql
+    ports:
+      - "3306:3306"
+    volumes:
+      - "./docker/data/db/mysql:/var/lib/mysql"
+      - ./init.sql:/data/application/init.sql
